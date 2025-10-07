@@ -3,5 +3,10 @@ name = "review-service"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = []
+requires-python = ">=3.13"
+dependencies = [
+    "review-system-demo[rest-api-basic, database-basic]",
+]
+
+[tool.uv.sources]
+review-system-demo = { workspace = true }
