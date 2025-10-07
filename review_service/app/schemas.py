@@ -43,3 +43,7 @@ class ReviewRead(ReviewBase):
         from_attributes=True,
         coerce_numbers_to_str=True,
     )
+
+class ReviewEvent(BaseModel):
+    event_type: str
+    review: ReviewRead
