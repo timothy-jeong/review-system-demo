@@ -5,10 +5,10 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 import httpx
-# [수정 1] ASGITransport를 임포트합니다.
 from httpx import ASGITransport
 
-# [수정 2] 안정적인 임포트 경로로 변경합니다. (프로젝트 루트가 review_service라고 가정)
+# We need the actual message_bus instance and its dependency getter
+from app.messaging.bus import message_bus, get_message_bus, MessageBus
 from app.database import Base, get_db
 from app.main import app
 
@@ -33,16 +33,30 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 @pytest_asyncio.fixture(scope="function")
-async def client(db_session: AsyncSession) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Fixture to create a test client that overrides the database dependency."""
+async def bus() -> AsyncGenerator[MessageBus, None]:
+    """Fixture to connect and disconnect the message bus for each test."""
+    await message_bus.connect()
+    yield message_bus
+    await message_bus.disconnect()
+
+@pytest_asyncio.fixture(scope="function")
+async def client(db_session: AsyncSession, bus: MessageBus) -> AsyncGenerator[httpx.AsyncClient, None]:
+    """Fixture to create a test client that overrides dependencies."""
     
+    # Override database dependency
     def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
+    
+    # Override message bus dependency
+    def override_get_bus() -> MessageBus:
+        return bus
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_message_bus] = override_get_bus
 
-    # [수정 3] AsyncClient를 올바른 방식으로 초기화합니다.
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
+    # Clean up overrides
     del app.dependency_overrides[get_db]
+    del app.dependency_overrides[get_message_bus]

@@ -6,16 +6,20 @@ from typing import List
 
 from . import crud, models, schemas, services
 from .database import engine, Base, get_db
+from .messaging.bus import message_bus, MessageBus, get_message_bus
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 Application startup: Initializing database...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("✅ Database initialized.")
+    print("[infrastructure] Database initialized.")
+    
+    await message_bus.connect()
     
     yield
     
+    await message_bus.disconnect()
     await engine.dispose()
 
 app = FastAPI(
@@ -27,12 +31,13 @@ app = FastAPI(
 @app.post("/reviews/", response_model=schemas.ReviewRead, status_code=status.HTTP_201_CREATED, tags=["Reviews"])
 async def create_review_endpoint(
     review: schemas.ReviewCreateRequest, 
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    bus: MessageBus = Depends(get_message_bus),
 ):
     """
     새로운 리뷰를 생성합니다.
     """
-    return await services.create_review(db=db, review_request=review)
+    return await services.create_review(db=db, bus=bus, review_request=review)
 
 
 @app.get("/reviews/", response_model=List[schemas.ReviewRead], tags=["Reviews"])
@@ -57,9 +62,9 @@ async def read_review_endpoint(review_id: int, db: AsyncSession = Depends(get_db
 
 @app.put("/reviews/{review_id}", response_model=schemas.ReviewRead, tags=["Reviews"])
 async def update_review_endpoint(
-    review_id: int, review: schemas.ReviewUpdateRequest, db: AsyncSession = Depends(get_db)
+    review_id: int, review: schemas.ReviewUpdateRequest, db: AsyncSession = Depends(get_db), bus: MessageBus = Depends(get_message_bus),
 ):
-    db_review = await services.update_review(db, review_id=review_id, review_update=review)
+    db_review = await services.update_review(db=db, bus=bus, review_id=review_id, review_update=review)
     if db_review is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
     return db_review

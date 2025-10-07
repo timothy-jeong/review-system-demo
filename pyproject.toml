@@ -17,6 +17,9 @@ database-basic = [
     "sqlalchemy[asyncio]>=2.0.43",
     "tsidpy>=1.1.5",
 ]
+message-queue =[
+    "aio-pika>=9.5.7",
+]
 test = [
     "httpx>=0.28.1",
     "pytest>=8.4.2",

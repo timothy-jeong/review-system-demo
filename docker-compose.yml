@@ -16,6 +16,14 @@ services:
       timeout: 5s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:4.1.4-management-alpine
+    container_name: rabbitmq-bus
+    ports:
+      - "5672:5672"   # Port for application connection
+      - "15672:15672" # Port for the management web UI
+
+
   review-service-tester:
     build:
       context: .
@@ -23,6 +31,7 @@ services:
       target: test
     environment:
       - DATABASE_URL=postgresql+asyncpg://user:password@db/review_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
       db:
         condition: service_healthy
@@ -39,6 +48,7 @@ services:
       - ./review_service:/code/review_service
     environment:
       - DATABASE_URL=postgresql+asyncpg://user:password@db/review_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
       review-service-tester:
         condition: service_completed_successfully
