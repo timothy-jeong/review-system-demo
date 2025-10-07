@@ -1,7 +1,8 @@
 import random
-from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 PRODUCT_CANDIDATES = [f"PROD-{i:03}" for i in range(1, 11)] # PROD-001 ~ PROD-010
 USER_CANDIDATES = [f"USER-{i:03}" for i in range(1, 21)]    # USER-001 ~ USER-020
@@ -19,11 +20,13 @@ class ReviewUpdate(BaseModel):
     comment: Optional[str] = None
 
 class ReviewRead(ReviewBase):
-    id: int
+    id: str
     product_id: str
     user_id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(
+        from_attributes=True,
+        coerce_numbers_to_str=True,
+    )
