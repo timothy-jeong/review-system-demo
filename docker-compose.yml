@@ -16,10 +16,22 @@ services:
       timeout: 5s
       retries: 5
 
+  review-service-tester:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.review
+      target: test
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@db/review_db
+    depends_on:
+      db:
+        condition: service_healthy
+
   review-service:
     build:
       context: .
       dockerfile: ./Dockerfile.review
+      target: final
     container_name: review-service
     ports:
       - "8000:8000"
@@ -28,8 +40,8 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://user:password@db/review_db
     depends_on:
-      db:
-        condition: service_healthy
+      review-service-tester:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:

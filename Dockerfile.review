@@ -1,17 +1,29 @@
-FROM python:3.13-slim AS builder
+FROM python:3.13-slim AS base
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /code
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
 COPY pyproject.toml uv.lock* ./
-COPY ./review_service ./review_service
+COPY review_service ./review_service
 
 RUN uv sync --all-packages
 
 FROM base AS test
 
-CMD ["pytest", "review_service/tests"]
+WORKDIR /code
+
+COPY --from=base /code/.venv ./.venv
+COPY --from=base /code/review_service ./review_service
+
+ENV PATH="/code/.venv/bin:$PATH"
+ENV PYTHONPATH=/code:/code/review_service
+
+CMD ["pytest"]
+
 
 FROM python:3.13-slim AS final
 
@@ -19,12 +31,10 @@ RUN groupadd --system app && useradd --system --gid app appuser
 
 WORKDIR /code
 
-COPY --from=builder --chown=appuser:app /code/.venv ./.venv
-COPY --from=builder --chown=appuser:app /code/review_service ./review_service
+COPY --from=base --chown=appuser:app /code/.venv ./.venv
+COPY --from=base --chown=appuser:app /code/review_service ./review_service
 
 ENV PATH="/code/.venv/bin:$PATH"
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
 
 USER appuser
 
