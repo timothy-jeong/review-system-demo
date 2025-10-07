@@ -1,18 +1,19 @@
 import enum
 
 from tsidpy import TSID
-from sqlalchemy import Column, Integer, String, Text, DateTime, Enum
+from sqlalchemy import BigInteger, Column, Integer, String, Text, DateTime, Enum
 from sqlalchemy.sql import func
 from .database import Base
 
 class ReviewType(str, enum.Enum):
+    RATING = "RATING"
     NORMAL = "NORMAL"
     PHOTO = "PHOTO"
 
 class Review(Base):
     __tablename__ = "reviews"
 
-    id = Column(Integer, primary_key=True, default=TSID.create().number)
+    id = Column(BigInteger, primary_key=True, default=lambda: TSID.create().number)
     product_id = Column(String, nullable=False, index=True)
     user_id = Column(String, nullable=False, index=True)
     rating = Column(Integer, nullable=False, default=0)
