@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: review-postgres-db
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=review_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d review_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  review-service:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.review
+    container_name: review-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./review_service:/code/review_service
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@db/review_db
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

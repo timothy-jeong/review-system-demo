@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "review-system-demo[rest-api-basic, database-basic]",
+    "review-system-demo[rest-api-basic, database-basic, test]",
 ]
 
 [tool.uv.sources]

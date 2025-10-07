@@ -1,0 +1,31 @@
+FROM python:3.13-slim AS builder
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+WORKDIR /code
+
+COPY pyproject.toml uv.lock* ./
+COPY ./review_service ./review_service
+
+RUN uv sync --all-packages
+
+FROM base AS test
+
+CMD ["pytest", "review_service/tests"]
+
+FROM python:3.13-slim AS final
+
+RUN groupadd --system app && useradd --system --gid app appuser
+
+WORKDIR /code
+
+COPY --from=builder --chown=appuser:app /code/.venv ./.venv
+COPY --from=builder --chown=appuser:app /code/review_service ./review_service
+
+ENV PATH="/code/.venv/bin:$PATH"
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+USER appuser
+
+CMD ["uvicorn", "review_service.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
