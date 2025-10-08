@@ -580,6 +580,12 @@ provides-extras = ["rest-api-basic", "database-basic", "message-queue", "test"]
 name = "reward-service"
 version = "0.1.0"
 source = { virtual = "reward_service" }
+dependencies = [
+    { name = "review-system-demo", extra = ["database-basic", "message-queue", "test"] },
+]
+
+[package.metadata]
+requires-dist = [{ name = "review-system-demo", extras = ["database-basic", "message-queue", "test"], virtual = "." }]
 
 [[package]]
 name = "sniffio"
