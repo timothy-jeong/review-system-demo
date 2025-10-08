@@ -1,16 +1,31 @@
-# tests/conftest.py
 import pytest_asyncio
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List 
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 import httpx
 from httpx import ASGITransport
+from pydantic import BaseModel
 
 # We need the actual message_bus instance and its dependency getter
-from app.messaging.bus import message_bus, get_message_bus, MessageBus
+from app.messaging.bus import MessageBus, get_message_bus
 from app.database import Base, get_db
 from app.main import app
+
+class FakeMessageBus(MessageBus):
+    """테스트용 가짜 메시지 버스. 메시지를 보내는 척하고 내부에 저장만 합니다."""
+    def __init__(self):
+        self.messages: List[BaseModel] = []
+
+    async def connect(self):
+        print("Fake bus connected (no real connection).")
+
+    async def disconnect(self):
+        print("Fake bus disconnected.")
+
+    async def publish(self, topic: str, message: BaseModel):
+        print(f"Fake bus captured message on topic '{topic}'")
+        self.messages.append(message)
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -33,21 +48,17 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 @pytest_asyncio.fixture(scope="function")
-async def bus() -> AsyncGenerator[MessageBus, None]:
-    """Fixture to connect and disconnect the message bus for each test."""
-    await message_bus.connect()
-    yield message_bus
-    await message_bus.disconnect()
+async def bus() -> FakeMessageBus:
+    """FakeMessageBus 인스턴스를 제공하는 픽스처."""
+    return FakeMessageBus()
 
 @pytest_asyncio.fixture(scope="function")
-async def client(db_session: AsyncSession, bus: MessageBus) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Fixture to create a test client that overrides dependencies."""
+async def client(db_session: AsyncSession, bus: FakeMessageBus) -> AsyncGenerator[httpx.AsyncClient, None]:
+    """DB와 Bus 의존성이 모두 오버라이드된 테스트 클라이언트를 생성합니다."""
     
-    # Override database dependency
     def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
     
-    # Override message bus dependency
     def override_get_bus() -> MessageBus:
         return bus
 
@@ -57,6 +68,5 @@ async def client(db_session: AsyncSession, bus: MessageBus) -> AsyncGenerator[ht
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
-    # Clean up overrides
     del app.dependency_overrides[get_db]
     del app.dependency_overrides[get_message_bus]
